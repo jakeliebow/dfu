@@ -77,7 +77,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="mitm_orch_") as td:
         proxy_proc = Process(
             target=run_proxy,
-            args=(td, args.host, args.port, args.min_package_age, args.registry),
+            args=(td, args.host, args.port, args.min_package_age_days, args.registry),
             daemon=True,
         )
         pm_proc = Process(
