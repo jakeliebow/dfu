@@ -30,6 +30,11 @@ def main():
         default="https://registry.npmjs.org/",
         help="Package registry URL (default: https://registry.npmjs.org/)",
     )
+    p.add_argument(
+        "--unsafe-http",
+        action="store_true",
+        help="Allow unsafe HTTP connections (required for yarn)",
+    )
     args, unknown_args = p.parse_known_args()
 
     # Parse package manager and command from unknown args
@@ -44,6 +49,14 @@ def main():
     if package_manager not in ["npm", "yarn"]:
         print(
             f"error: unsupported package manager '{package_manager}'. Supported: npm, yarn",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Check if yarn is being used without --unsafe-http flag
+    if package_manager == "yarn" and not args.unsafe_http:
+        print(
+            "error: yarn can only be run with the --unsafe-http flag",
             file=sys.stderr,
         )
         sys.exit(1)

@@ -1,9 +1,10 @@
-Depends on yarn or npm as this is not a self sufficient package manager.
+## Warning
+Becareful using yarn as it does not yet support https for proxies, leaving you vulnerable to a MITM attack
 
-Built with python-3.13.0
 
 ## Installation
-
+Install your package manager of choice
+Install python-3.13.0
 Run the build script for build and installation of executable dfu
 
 ## Usage
@@ -13,8 +14,9 @@ To run the project with Python:
 ```bash
 python main.py --project test --min-package-age 9999999 npm i
 python main.py --project test --min-package-age 80 npm i express@5.1.0
+python main.py --unsafe-http  --project test --min-package-age 14 yarn install
 dfu npm i
-dfu yarn install
+dfu --unsafe-http yarn install
 
 ```
 example output
