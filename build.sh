@@ -1,68 +1,58 @@
 #!/bin/bash
 
-# Build script for dfu - dependency fallback utility
+# Build script for Nuitka compilation and installation
 set -e
 
-# Ensure we have a proper PATH
-export PATH="/bin:/usr/bin:/usr/local/bin:$PATH"
+echo "🚀 Starting build process..."
 
-PROJECT_DIR="$(cd "$(/usr/bin/dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="$HOME/.local/bin"
-BUILD_DIR="$PROJECT_DIR/build"
-DIST_DIR="$PROJECT_DIR/dist"
+# Create build virtual environment
+echo "📦 Creating build_venv..."
+python3 -m venv build_venv
 
-echo "Building dfu executable with PyInstaller..."
+# Activate the virtual environment
+echo "🔄 Activating build_venv..."
+source build_venv/bin/activate
 
-# Clean previous builds
-/bin/rm -rf "$BUILD_DIR" "$DIST_DIR"
+# Install nuitka and other dependencies
+echo "📥 Installing nuitka and dependencies..."
+pip install nuitka
+pip install -r requirements.txt
 
-# Check if virtual environment exists, create if needed
-if [ ! -d "$PROJECT_DIR/venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv "$PROJECT_DIR/venv"
-    source "$PROJECT_DIR/venv/bin/activate"
-    pip install -r "$PROJECT_DIR/requirements.txt"
-    pip install pyinstaller
-else
-    source "$PROJECT_DIR/venv/bin/activate"
-    # Check if pyinstaller is installed
-    if ! pip show pyinstaller > /dev/null 2>&1; then
-        echo "Installing PyInstaller..."
-        pip install pyinstaller
+# Build with nuitka
+echo "🔨 Building with Nuitka..."
+python -m nuitka --mode=standalone main.py
+
+# Create bin directory if it doesn't exist
+echo "📁 Setting up bin directory..."
+mkdir -p bin
+
+# Move the compiled output to bin
+echo "📋 Moving output to bin..."
+if [ -d "main.dist" ]; then
+    cp -r main.dist/* bin/
+    # Make the main binary executable if it exists
+    if [ -f "bin/main.bin" ]; then
+        chmod +x bin/main.bin
+        mv bin/main.bin bin/dfu
+    elif [ -f "bin/main" ]; then
+        chmod +x bin/main
+        mv bin/main bin/dfu
     fi
+else
+    echo "❌ Error: main.dist directory not found after Nuitka build"
+    exit 1
 fi
 
-# Build the executable
-echo "Creating executable..."
-pyinstaller \
-    --onedir \
-    --name dfu \
-    --distpath "$DIST_DIR" \
-    "$PROJECT_DIR/main.py"
+# Deactivate virtual environment
+deactivate
 
-# Create install directory if it doesn't exist
-/bin/mkdir -p "$INSTALL_DIR"
-
-# Copy the executable directory to the install directory
-/bin/rm -rf "$INSTALL_DIR/dfu"
-/bin/cp -r "$DIST_DIR/dfu" "$INSTALL_DIR/"
-
-# Create a wrapper script for easy execution
-/bin/cat > "$INSTALL_DIR/dfu-wrapper" << 'EOF'
-#!/bin/bash
-DIR="$(cd "$(/usr/bin/dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$DIR/dfu/dfu" "$@"
-EOF
-/bin/chmod +x "$INSTALL_DIR/dfu-wrapper"
-
-# Clean up build artifacts
-/bin/rm -rf "$BUILD_DIR" "$DIST_DIR" "$PROJECT_DIR/dfu.spec"
-
-echo "dfu executable installed to $INSTALL_DIR/dfu/"
-echo "Wrapper script created at $INSTALL_DIR/dfu-wrapper"
+echo "✅ Build completed successfully!"
 echo ""
-echo "Make sure $INSTALL_DIR is in your PATH by adding this to your shell profile:"
-echo "export PATH=\"\$HOME/.local/bin:\$PATH\""
+echo "🔧 To make 'dfu' accessible from anywhere, copy and paste this into your terminal:"
 echo ""
-echo "You can now run: dfu-wrapper"
-echo "Or directly: $INSTALL_DIR/dfu/dfu"
+echo "export PATH=\"$(pwd)/bin:\$PATH\""
+echo ""
+echo "💡 To make this permanent, add the above line to your ~/.zshrc file:"
+echo "echo 'export PATH=\"$(pwd)/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+echo ""
+echo "🎯 You can now use 'dfu' from anywhere in your terminal!"

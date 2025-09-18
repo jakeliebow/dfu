@@ -23,7 +23,15 @@ class RequestHook:
         if flow.request.host == "registry.npmjs.org" and flow.request.url.endswith(
             ".tgz"
         ):
-            scan_for_brandnew_packages(flow.request.url, self.min_package_age)
+            try:
+                scan_for_brandnew_packages(flow.request.url, self.min_package_age)
+            except Exception as e:
+                flow.response = http.Response.make(
+                    403,
+                    f"Package blocked: {str(e)}".encode(),
+                    {"Content-Type": "text/plain"},
+                )
+                return
 
         return
 
@@ -49,6 +57,11 @@ def run_proxy(tempdir: str, host: str, port: int, min_package_age: int):
         f"strict-ssl=true",
         f"cafile={str(cert_only.resolve())}",
         "noproxy=",
+        "fetch-retries=0",
+        "prefer-online=true",
+        "fetch-retry-mintimeout=0",
+        "fetch-retry-maxtimeout=0",
+        "maxsockets=1",
     ]
     npmrc_path.write_text("\n".join(npmrc_lines) + "\n", encoding="utf-8")
     ready_file = td / "mitmproxy_ready"
