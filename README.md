@@ -1,5 +1,5 @@
 ## Description
-This is an a package manager runner compatible with npm and yarn that scans all packages for version numbers including down stream dependencies and blocks recently updated packages.
+This is a package manager runner compatible with npm and yarn that scans all packages for version numbers including down stream dependencies and blocks recently updated packages.
 The basic idea here is that npm packages are now frequently compromised, uploaded, and downloaded by a wide variety of tools and systems before being caught over the course of a day or so. 
 As a result npm is still laregely a safe and secure tool, however recently updated packages are not and should be given time to be scanned and used by the broader npm community.
 
