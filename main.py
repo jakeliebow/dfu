@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from multiprocessing import Process
 from proxy import run_proxy
-from npm_runner import run_npm_install
+from npm_runner import run_package_manager
 
 
 def main():
@@ -25,13 +25,30 @@ def main():
         help="Minimum package age in days (default: 14 days)",
     )
     args, unknown_args = p.parse_known_args()
-    npm_args = []
-    i = 0
+
+    # Parse package manager and command from unknown args
+    if not unknown_args:
+        print(
+            "error: please specify package manager and command (e.g., 'dfu npm i package-name')",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    package_manager = unknown_args[0]
+    if package_manager not in ["npm", "yarn"]:
+        print(
+            f"error: unsupported package manager '{package_manager}'. Supported: npm, yarn",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    pm_args = []
+    i = 1
     while i < len(unknown_args):
         if unknown_args[i] == "--userconfig":
             raise Exception("dfu does not support custom --userconfig arguments")
         else:
-            npm_args.append(unknown_args[i])
+            pm_args.append(unknown_args[i])
             i += 1
 
     project_dir = str(Path(args.project).resolve())
@@ -44,27 +61,28 @@ def main():
             args=(td, args.host, args.port, args.min_package_age),
             daemon=True,
         )
-        npm_proc = Process(
-            target=run_npm_install,
+        pm_proc = Process(
+            target=run_package_manager,
             args=(
                 td,
                 project_dir,
                 args.host,
                 args.port,
-                npm_args if npm_args else None,
+                package_manager,
+                pm_args if pm_args else None,
             ),
             daemon=False,
         )
 
         proxy_proc.start()
-        npm_proc.start()
-        npm_proc.join()
+        pm_proc.start()
+        pm_proc.join()
         rc = None
-        if npm_proc.exitcode is not None and npm_proc.exitcode != 0:
-            rc = npm_proc.exitcode
+        if pm_proc.exitcode is not None and pm_proc.exitcode != 0:
+            rc = pm_proc.exitcode
         else:
             try:
-                done_path = Path(td) / "npm_done"
+                done_path = Path(td) / "pm_done"
                 if done_path.exists():
                     rc = int(done_path.read_text().strip() or 0)
             except Exception:
