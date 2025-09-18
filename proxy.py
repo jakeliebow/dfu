@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 from mitmproxy import options, http
 from mitmproxy.tools.dump import DumpMaster
-from certificate import make_ca, _pem_for_cert, _pem_for_key
+from certificate import make_ca, pem_for_cert, pem_for_key
 from npm import scan_for_brandnew_packages
 
 
@@ -89,8 +89,8 @@ def run_proxy(
     combined = confdir / "mitmproxy-ca.pem"
     cert_only = confdir / "mitmproxy-ca-cert.pem"
 
-    combined.write_bytes(_pem_for_cert(ca_cert) + b"\n" + _pem_for_key(ca_key))
-    cert_only.write_bytes(_pem_for_cert(ca_cert))
+    combined.write_bytes(pem_for_cert(ca_cert) + b"\n" + pem_for_key(ca_key))
+    cert_only.write_bytes(pem_for_cert(ca_cert))
     print("Wrote certificate files", flush=True)
 
     npmrc_path = td / "npm_temp.npmrc"
