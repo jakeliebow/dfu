@@ -12,16 +12,16 @@ Run the build script for build and installation of executable dfu
 To run the project with Python:
 
 ```bash
-python main.py --project test --min-package-age 9999999 npm i
-python main.py --project test --min-package-age 80 npm i express@5.1.0
-python main.py --unsafe-http  --project test --min-package-age 14 yarn install
+python main.py --project test --min-package-age-days 9999999 npm i
+python main.py --project test --min-package-age-days 80 npm i express@5.1.0
+python main.py --unsafe-http  --project test --min-package-age-days 14 yarn install
 dfu npm i
 dfu --unsafe-http yarn install
 
 ```
 example output
 ```bash
-python main.py --project test --min-package-age 80 npm i express@5.1.0
+python main.py --project test --min-package-age-days 80 npm i express@5.1.0
 Starting proxy setup in /tmp/mitm_orch_5f1vkkkn
 Created confdir
 Generated CA certificates

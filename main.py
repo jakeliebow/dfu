@@ -20,7 +20,7 @@ def main():
     p.add_argument("--port", type=int, default=8080, help="Proxy port")
     p.add_argument("--host", default="localhost", help="Proxy host address")
     p.add_argument(
-        "--min-package-age",
+        "--min-package-age-days",
         type=int,
         default=14,
         help="Minimum package age in days (default: 14 days)",
