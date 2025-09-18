@@ -37,19 +37,26 @@ def extract_pkg_and_version(url: str) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _get_package_info(pkg: str) -> dict:
-    r = requests.get(f"https://registry.npmjs.org/{pkg}", timeout=10)
+def _get_package_info(pkg: str, registry: str = "https://registry.npmjs.org/") -> dict:
+    # Ensure registry ends with / for proper URL construction
+    if not registry.endswith("/"):
+        registry += "/"
+    r = requests.get(f"{registry}{pkg}", timeout=10)
     r.raise_for_status()
     return r.json()
 
 
-def scan_for_brandnew_packages(url: str, min_package_age_days: int = 730):
+def scan_for_brandnew_packages(
+    url: str,
+    min_package_age_days: int = 730,
+    registry: str = "https://registry.npmjs.org/",
+):
     pv = extract_pkg_and_version(url)
     if not pv:
         return
     pkg, ver = pv
 
-    data = _get_package_info(pkg)
+    data = _get_package_info(pkg, registry)
     time_map = data.get("time", {})
     package_modified = time_map["modified"]
 

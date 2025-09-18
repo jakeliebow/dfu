@@ -29,8 +29,10 @@ def detect_yarn_version():
 
 
 class RequestHook:
-    def __init__(self, min_package_age: int):
+    def __init__(self, min_package_age: int, error_file: Path, registry: str):
         self.min_package_age = min_package_age
+        self.error_file = error_file
+        self.registry = registry
 
     def request(self, flow: http.HTTPFlow) -> None:
         PING_PATH = "/__proxy_ping"
@@ -39,31 +41,48 @@ class RequestHook:
                 200, b"PONG", {"Content-Type": "text/plain"}
             )
             return
-
-        # Scan package downloads for age validation
-        # This works with the normal proxy flow where npm hits registry.npmjs.org through our proxy
-        if flow.request.host == "registry.npmjs.org" and flow.request.url.endswith(
-            ".tgz"
-        ):
+        if flow.request.url.endswith(".tgz"):
             try:
-                scan_for_brandnew_packages(flow.request.url, self.min_package_age)
+                scan_for_brandnew_packages(
+                    flow.request.url, self.min_package_age, self.registry
+                )
             except Exception as e:
+                error_message = f"""
+ERROR: DFU has blocked {flow.request.url} 
+PIN/DOWNGRADE PACKAGE VERSIONS OR A PACKAGE MANAGER DIRECTLY TO INSTALL
+                """
                 flow.response = http.Response.make(
-                    403,
+                    500,
                     f"Package blocked: {str(e)}".encode(),
                     {"Content-Type": "text/plain"},
                 )
-                return
+                # Signal fatal error to main process
+                try:
+                    self.error_file.write_text(
+                        f"Package blocked: {str(e)}", encoding="utf-8"
+                    )
+                except Exception:
+                    pass
+                raise Exception(error_message)
 
         return
 
 
-def run_proxy(tempdir: str, host: str, port: int, min_package_age: int):
+def run_proxy(
+    tempdir: str,
+    host: str,
+    port: int,
+    min_package_age: int,
+    registry: str = "https://registry.npmjs.org/",
+):
     print(f"Starting proxy setup in {tempdir}", flush=True)
     td = Path(tempdir)
     confdir = td / "confdir"
     confdir.mkdir(exist_ok=True)
     print("Created confdir", flush=True)
+
+    # Error signaling file
+    error_file = td / "proxy_error"
 
     ca_key, ca_cert = make_ca()
     print("Generated CA certificates", flush=True)
@@ -77,7 +96,7 @@ def run_proxy(tempdir: str, host: str, port: int, min_package_age: int):
     npmrc_path = td / "npm_temp.npmrc"
     proxy_url = f"https://{host}:{port}"
     npmrc_lines = [
-        "registry=https://registry.npmjs.org/",
+        f"registry={registry}",
         f"proxy={proxy_url}",
         f"https-proxy={proxy_url}",
         f"strict-ssl=true",
@@ -104,8 +123,9 @@ def run_proxy(tempdir: str, host: str, port: int, min_package_age: int):
 httpsProxy: "{http_proxy_url}"
 strictSsl: true
 caFilePath: "{str(cert_only.resolve())}"
-registry: "https://registry.npmjs.org/"
 networkTimeout: 30000
+networkConcurrency: 1
+httpRetryCount: 0
 """
         yarnrc_yml_path.write_text(yarnrc_yml_content, encoding="utf-8")
         print(f"Created Yarn 2+ config: {yarnrc_yml_path}", flush=True)
@@ -115,8 +135,10 @@ networkTimeout: 30000
         yarnrc_content = f"""proxy "{http_proxy_url}"
 https-proxy "{http_proxy_url}"
 strict-ssl false
-registry "https://registry.npmjs.org/"
-network-timeout 30000
+registry "{registry}"
+network-timeout 1000
+network-concurrency 1
+network-retry-count 0
 """
         yarnrc_path.write_text(yarnrc_content, encoding="utf-8")
         print(f"Created Yarn 1.x config: {yarnrc_path}", flush=True)
@@ -134,7 +156,7 @@ network-timeout 30000
         print("Creating DumpMaster", flush=True)
         m = DumpMaster(opts, with_termlog=False, with_dumper=False)
         print("Adding request hook", flush=True)
-        m.addons.add(RequestHook(min_package_age))
+        m.addons.add(RequestHook(min_package_age, error_file, registry))
         print("Starting mitmproxy", flush=True)
         asyncio.run(m.run())
     except Exception as e:
@@ -142,4 +164,9 @@ network-timeout 30000
         import traceback
 
         traceback.print_exc()
+        # Signal fatal error to main process
+        try:
+            error_file.write_text(f"Proxy startup error: {str(e)}", encoding="utf-8")
+        except Exception:
+            pass
         raise

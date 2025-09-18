@@ -2,6 +2,7 @@ import argparse
 import tempfile
 import sys
 import os
+import time
 from pathlib import Path
 from multiprocessing import Process
 from proxy import run_proxy
@@ -23,6 +24,11 @@ def main():
         type=int,
         default=14,
         help="Minimum package age in days (default: 14 days)",
+    )
+    p.add_argument(
+        "--registry",
+        default="https://registry.npmjs.org/",
+        help="Package registry URL (default: https://registry.npmjs.org/)",
     )
     args, unknown_args = p.parse_known_args()
 
@@ -58,7 +64,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="mitm_orch_") as td:
         proxy_proc = Process(
             target=run_proxy,
-            args=(td, args.host, args.port, args.min_package_age),
+            args=(td, args.host, args.port, args.min_package_age, args.registry),
             daemon=True,
         )
         pm_proc = Process(
@@ -76,20 +82,61 @@ def main():
 
         proxy_proc.start()
         pm_proc.start()
-        pm_proc.join()
+
+        # Monitor both processes and error signals
         rc = None
-        if pm_proc.exitcode is not None and pm_proc.exitcode != 0:
-            rc = pm_proc.exitcode
-        else:
-            try:
-                done_path = Path(td) / "pm_done"
-                if done_path.exists():
-                    rc = int(done_path.read_text().strip() or 0)
-            except Exception:
-                rc = 0
-        if proxy_proc.is_alive():
-            proxy_proc.terminate()
-            proxy_proc.join(timeout=5)
+        proxy_error_file = Path(td) / "proxy_error"
+        pm_done_file = Path(td) / "pm_done"
+
+        try:
+            while True:
+                # Check if proxy process has died
+                if not proxy_proc.is_alive():
+                    print(
+                        "Proxy process has died, shutting down package manager",
+                        flush=True,
+                    )
+                    if pm_proc.is_alive():
+                        pm_proc.terminate()
+                        pm_proc.join(timeout=5)
+                    rc = 1
+                    break
+
+                # Check for proxy error signal
+                if proxy_error_file.exists():
+                    error_msg = proxy_error_file.read_text(encoding="utf-8").strip()
+                    print(f"Proxy error detected: {error_msg}", flush=True)
+                    if pm_proc.is_alive():
+                        # Kill the package manager process quietly
+                        pm_proc.terminate()
+                        pm_proc.join(timeout=2)
+                    rc = 1
+                    break
+
+                # Check if package manager process has finished
+                if not pm_proc.is_alive():
+                    print("Package manager process has finished", flush=True)
+                    if pm_proc.exitcode is not None and pm_proc.exitcode != 0:
+                        rc = pm_proc.exitcode
+                    else:
+                        try:
+                            if pm_done_file.exists():
+                                rc = int(pm_done_file.read_text().strip() or 0)
+                        except Exception:
+                            rc = 0
+                    break
+
+                time.sleep(0.1)
+
+        finally:
+            # Ensure both processes are terminated
+            if proxy_proc.is_alive():
+                proxy_proc.terminate()
+                proxy_proc.join(timeout=5)
+            if pm_proc.is_alive():
+                pm_proc.terminate()
+                pm_proc.join(timeout=5)
+
         sys.exit(rc or 0)
 
 

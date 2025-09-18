@@ -3,6 +3,7 @@ import time
 import subprocess
 import sys
 import os
+import signal
 from pathlib import Path
 import requests
 from proxy import detect_yarn_version
@@ -35,14 +36,23 @@ def run_package_manager(
     wait_deadline = time.time() + 120.0
     while not config_file.exists():
         if time.time() > wait_deadline:
-            raise TimeoutError(f"timed out waiting for {config_file.name}")
+            print(f"Timed out waiting for {config_file.name}", flush=True)
+            try:
+                done.write_text("1", encoding="utf-8")
+            except Exception:
+                pass
+            os._exit(1)
         time.sleep(0.1)
     try:
         _wait_for_proxy(proxy_host, proxy_port)
     except Exception as e:
         print(f"Error waiting for proxy: {e}", flush=True)
         print("Error logged during startup, exiting...", flush=True)
-        return
+        try:
+            done.write_text("1", encoding="utf-8")
+        except Exception:
+            pass
+        os._exit(1)
 
     if package_manager == "npm":
         cmd = ["npm", "--userconfig", str(config_file)]
@@ -71,8 +81,30 @@ def run_package_manager(
     env["http_proxy"] = f"http://{proxy_host}:{proxy_port}"
     env["https_proxy"] = f"http://{proxy_host}:{proxy_port}"
 
-    proc = subprocess.Popen(cmd, cwd=project_dir, env=env)
-    rc = proc.wait()
+    # Global reference to subprocess so signal handler can access it
+    global current_proc
+    current_proc = None
+
+    def cleanup_handler(signum, frame):
+        if current_proc and current_proc.poll() is None:
+            try:
+                current_proc.kill()
+                current_proc.wait(timeout=2)
+            except Exception:
+                pass
+        os._exit(1)
+
+    # Set up signal handlers
+    signal.signal(signal.SIGTERM, cleanup_handler)
+    signal.signal(signal.SIGINT, cleanup_handler)
+
+    try:
+        proc = subprocess.Popen(cmd, cwd=project_dir, env=env, preexec_fn=os.setsid)
+        current_proc = proc
+        rc = proc.wait()
+    except Exception as e:
+        print(f"Error running package manager: {e}", flush=True)
+        rc = 1
 
     try:
         done.write_text(str(rc), encoding="utf-8")
