@@ -48,8 +48,10 @@ class RequestHook:
                 )
             except Exception as e:
                 error_message = f"""
+===========================================================================
 ERROR: DFU has blocked {flow.request.url} 
-PIN/DOWNGRADE PACKAGE VERSIONS OR A PACKAGE MANAGER DIRECTLY TO INSTALL
+PIN/DOWNGRADE PACKAGE VERSIONS OR USE A PACKAGE MANAGER DIRECTLY TO INSTALL
+===========================================================================
                 """
                 flow.response = http.Response.make(
                     403,
