@@ -52,7 +52,7 @@ ERROR: DFU has blocked {flow.request.url}
 PIN/DOWNGRADE PACKAGE VERSIONS OR A PACKAGE MANAGER DIRECTLY TO INSTALL
                 """
                 flow.response = http.Response.make(
-                    500,
+                    403,
                     f"Package blocked: {str(e)}".encode(),
                     {"Content-Type": "text/plain"},
                 )

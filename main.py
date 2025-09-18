@@ -18,7 +18,7 @@ def main():
         help="Path to project directory to run `npm i` in (defaults to current directory)",
     )
     p.add_argument("--port", type=int, default=8080, help="Proxy port")
-    p.add_argument("--host", default="127.0.0.1", help="Proxy host address")
+    p.add_argument("--host", default="localhost", help="Proxy host address")
     p.add_argument(
         "--min-package-age",
         type=int,

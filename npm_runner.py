@@ -124,19 +124,8 @@ def _wait_for_proxy(proxy_host: str, proxy_port: int):
         try:
             r = requests.get(url, timeout=timeout)
             result = r.status_code == 200 and r.text.strip() == "PONG"
-            if result:
-                print(
-                    f"Successfully pinged proxy: {r.status_code} {r.text.strip()}",
-                    flush=True,
-                )
-            else:
-                print(
-                    f"Ping failed: status={r.status_code}, text='{r.text.strip()}'",
-                    flush=True,
-                )
             return result
         except requests.RequestException as e:
-            print(f"Connection error: {e}", flush=True)
             return False
 
     probe_deadline = time.time() + 120.0
