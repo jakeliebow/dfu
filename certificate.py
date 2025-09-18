@@ -9,18 +9,6 @@ def _gen_rsa(bits: int = 2048):
     return rsa.generate_private_key(public_exponent=65537, key_size=bits)
 
 
-def _pem_for_key(key):
-    return key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-
-
-def _pem_for_cert(cert):
-    return cert.public_bytes(serialization.Encoding.PEM)
-
-
 def make_ca(common_name: str = "mitm-temp-ca"):
     key = _gen_rsa(4096)
     subj = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
