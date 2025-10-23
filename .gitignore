@@ -5,3 +5,4 @@ __pycache__
 main.build/
 main.dist
 bin
+proxy_files
