@@ -9,7 +9,7 @@ Becareful using yarn as it does not yet support https for proxies, leaving you v
 
 ## Installation
 Install your package manager of choice
-Install python-3.13.0
+Install python 3.12
 Run the build script for build and installation of executable dfu
 
 ## Usage
