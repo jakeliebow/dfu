@@ -14,35 +14,41 @@ Run the build script for build and installation of executable dfu
 
 ## Usage
 
-To run the project with Python:
+1) Start the standalone proxy server (writes configs into `./proxy_files`):
 
 ```bash
-python main.py --project test --min-package-age-days 9999999 npm i
-python main.py --project test --min-package-age-days 80 npm i express@5.1.0
-python main.py --unsafe-http  --project test --min-package-age-days 14 yarn install
-dfu npm i
-dfu --unsafe-http yarn install
-
+python main.py --host localhost --port 8080 --min-package-age-days 80
 ```
-example output
+
+2) In your project (e.g., `test/`), run npm through the generated config:
+
 ```bash
-python main.py --project test --min-package-age-days 80 npm i express@5.1.0
-Starting proxy setup in /tmp/mitm_orch_5f1vkkkn
+cd test
+npm --userconfig ../proxy_files/dfu.npmrc install express@latest
+```
+
+3) Yarn (pick the file that exists):
+
+```bash
+# Yarn 2+
+yarn --rc-file ../proxy_files/dfu.yarnrc.yml install
+
+# Yarn 1.x
+yarn --use-yarnrc ../proxy_files/dfu.yarnrc install
+```
+
+Example output:
+```bash
+Starting proxy setup in /path/to/your/repo/proxy_files
 Created confdir
 Generated CA certificates
 Wrote certificate files
-Detected yarn version: None
-Created Yarn 2+ config: /tmp/mitm_orch_5f1vkkkn/yarn_temp.yarnrc.yml
+Detected yarn version: 3
+Created Yarn 2+ config: /path/to/your/repo/proxy_files/dfu.yarnrc.yml
 Setting up event loop
 Creating mitmproxy options: host=localhost, port=8080
 Creating DumpMaster
-Waiting for proxy at localhost:8080
 Adding request hook
 Starting mitmproxy
-Proxy is ready!
-⠙Proxy error detected: Package blocked: Package path-to-regexp version 8.3.0 was modified less than 80 days ago.
-
-
-Or use the DFU (Default) option.
 ```
 

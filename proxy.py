@@ -29,9 +29,8 @@ def detect_yarn_version():
 
 
 class RequestHook:
-    def __init__(self, min_package_age: int, error_file: Path, registry: str):
+    def __init__(self, min_package_age: int, registry: str):
         self.min_package_age = min_package_age
-        self.error_file = error_file
         self.registry = registry
 
     def request(self, flow: http.HTTPFlow) -> None:
@@ -47,44 +46,28 @@ class RequestHook:
                     flow.request.url, self.min_package_age, self.registry
                 )
             except Exception as e:
-                error_message = f"""
-===========================================================================
-ERROR: DFU has blocked {flow.request.url} 
-PIN/DOWNGRADE PACKAGE VERSIONS OR USE A PACKAGE MANAGER DIRECTLY TO INSTALL
-===========================================================================
-                """
                 flow.response = http.Response.make(
                     403,
                     f"Package blocked: {str(e)}".encode(),
                     {"Content-Type": "text/plain"},
                 )
-                # Signal fatal error to main process
-                try:
-                    self.error_file.write_text(
-                        f"Package blocked: {str(e)}", encoding="utf-8"
-                    )
-                except Exception:
-                    pass
-                raise Exception(error_message)
 
         return
 
 
 def run_proxy(
-    tempdir: str,
     host: str,
     port: int,
     min_package_age: int,
     registry: str = "https://registry.npmjs.org/",
 ):
-    print(f"Starting proxy setup in {tempdir}", flush=True)
-    td = Path(tempdir)
-    confdir = td / "confdir"
+    base_dir = Path.cwd() / "proxy_files"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Starting proxy setup in {base_dir}", flush=True)
+    confdir = base_dir / "confdir"
     confdir.mkdir(exist_ok=True)
     print("Created confdir", flush=True)
 
-    # Error signaling file
-    error_file = td / "proxy_error"
 
     ca_key, ca_cert = make_ca()
     print("Generated CA certificates", flush=True)
@@ -95,7 +78,9 @@ def run_proxy(
     cert_only.write_bytes(pem_for_cert(ca_cert))
     print("Wrote certificate files", flush=True)
 
-    npmrc_path = td / "npm_temp.npmrc"
+    # Determine where to write user-visible config files (deterministic paths)
+    outdir = base_dir
+    npmrc_path = outdir / "dfu.npmrc"
     proxy_url = f"https://{host}:{port}"
     npmrc_lines = [
         f"registry={registry}",
@@ -118,9 +103,10 @@ def run_proxy(
     http_proxy_url = f"http://{host}:{port}"
     print(f"Detected yarn version: {yarn_version}", flush=True)
 
+    yarn_config_path = None
     if yarn_version is None or yarn_version >= 2:
         # Yarn 2+ format (or fallback if detection fails)
-        yarnrc_yml_path = td / "yarn_temp.yarnrc.yml"
+        yarnrc_yml_path = outdir / "dfu.yarnrc.yml"
         yarnrc_yml_content = f"""httpProxy: "{http_proxy_url}"
 httpsProxy: "{http_proxy_url}"
 strictSsl: true
@@ -130,10 +116,11 @@ networkConcurrency: 1
 httpRetryCount: 0
 """
         yarnrc_yml_path.write_text(yarnrc_yml_content, encoding="utf-8")
+        yarn_config_path = yarnrc_yml_path
         print(f"Created Yarn 2+ config: {yarnrc_yml_path}", flush=True)
     else:
         # Yarn 1.x format
-        yarnrc_path = td / "yarn_temp.yarnrc"
+        yarnrc_path = outdir / "dfu.yarnrc"
         yarnrc_content = f"""proxy "{http_proxy_url}"
 https-proxy "{http_proxy_url}"
 strict-ssl false
@@ -143,9 +130,19 @@ network-concurrency 1
 network-retry-count 0
 """
         yarnrc_path.write_text(yarnrc_content, encoding="utf-8")
+        yarn_config_path = yarnrc_path
         print(f"Created Yarn 1.x config: {yarnrc_path}", flush=True)
-    ready_file = td / "mitmproxy_ready"
-    ready_file.touch()
+
+    # Print the deterministic paths for discoverability
+    try:
+        print(f"NPM config path: {npmrc_path.resolve()}", flush=True)
+    except Exception:
+        pass
+    try:
+        if yarn_config_path is not None:
+            print(f"Yarn config path: {yarn_config_path.resolve()}", flush=True)
+    except Exception:
+        pass
 
     print("Setting up event loop", flush=True)
     loop = asyncio.new_event_loop()
@@ -158,17 +155,9 @@ network-retry-count 0
         print("Creating DumpMaster", flush=True)
         m = DumpMaster(opts, with_termlog=False, with_dumper=False)
         print("Adding request hook", flush=True)
-        m.addons.add(RequestHook(min_package_age, error_file, registry))
+        m.addons.add(RequestHook(min_package_age, registry))
         print("Starting mitmproxy", flush=True)
         asyncio.run(m.run())
     except Exception as e:
         print(f"Error starting mitmproxy: {e}", flush=True)
-        import traceback
-
-        traceback.print_exc()
-        # Signal fatal error to main process
-        try:
-            error_file.write_text(f"Proxy startup error: {str(e)}", encoding="utf-8")
-        except Exception:
-            pass
-        raise
+        
