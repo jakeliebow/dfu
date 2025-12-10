@@ -58,7 +58,7 @@ def scan_for_brandnew_packages(
 
     data = _get_package_info(pkg, registry)
     time_map = data.get("time", {})
-    package_modified = time_map["modified"]
+    package_modified = time_map[ver]
 
     modified_date = datetime.fromisoformat(package_modified.replace("Z", "+00:00"))
     if datetime.now(modified_date.tzinfo) - modified_date < timedelta(
