@@ -59,8 +59,12 @@ def run_proxy(
     host: str,
     port: int,
     min_package_age: int,
+    cert_file_path:str,
     registry: str = "https://registry.npmjs.org/",
+    
 ):
+
+    
     base_dir = Path.cwd() / "proxy_files"
     base_dir.mkdir(parents=True, exist_ok=True)
     print(f"Starting proxy setup in {base_dir}", flush=True)
@@ -87,7 +91,7 @@ def run_proxy(
         f"proxy={proxy_url}",
         f"https-proxy={proxy_url}",
         f"strict-ssl=true",
-        f"cafile={str(cert_only.resolve())}",
+        f"cafile={str(cert_file_path)}",
         "noproxy=",
         "fetch-retries=0",
         "prefer-online=true",
