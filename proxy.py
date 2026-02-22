@@ -59,12 +59,12 @@ def run_proxy(
     host: str,
     port: int,
     min_package_age: int,
-    cert_file_path:str,
+    root_path:str,
     registry: str = "https://registry.npmjs.org/",
-    
+
 ):
 
-    
+
     base_dir = Path.cwd() / "proxy_files"
     base_dir.mkdir(parents=True, exist_ok=True)
     print(f"Starting proxy setup in {base_dir}", flush=True)
@@ -91,7 +91,7 @@ def run_proxy(
         f"proxy={proxy_url}",
         f"https-proxy={proxy_url}",
         f"strict-ssl=true",
-        f"cafile={str(cert_file_path)}",
+        f"cafile={str(root_path)}/proxy_files/confdir/mitmproxy-ca.pem",
         "noproxy=",
         "fetch-retries=0",
         "prefer-online=true",
@@ -164,4 +164,3 @@ network-retry-count 0
         asyncio.run(m.run())
     except Exception as e:
         print(f"Error starting mitmproxy: {e}", flush=True)
-        
