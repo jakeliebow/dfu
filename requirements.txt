@@ -32,7 +32,7 @@ pylsqpack==0.3.22
 pyOpenSSL==25.0.0
 pyparsing==3.2.3
 pyperclip==1.9.0
-requests==2.32.4
+requests==2.33.0
 ruamel.yaml==0.18.10
 service-identity==24.2.0
 sortedcontainers==2.4.0
