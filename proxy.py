@@ -51,11 +51,18 @@ def _make_handler(min_package_age: int, registry: str, local_url: str):
 
         if upstream.endswith(".tgz"):
             try:
-                scan_for_brandnew_packages(upstream, min_package_age, registry)
+                blocked = scan_for_brandnew_packages(upstream, min_package_age, registry)
+                if blocked:
+                    return web.Response(
+                        status=403,
+                        text=f"Package blocked: {upstream} is less than {min_package_age} days old",
+                        content_type="text/plain",
+                    )
             except Exception as e:
+                print(f"Error scanning package: {e}", flush=True)
                 return web.Response(
-                    status=403,
-                    text=f"Package blocked: {e}",
+                    status=500,
+                    text=f"Error scanning package: {e}",
                     content_type="text/plain",
                 )
 
