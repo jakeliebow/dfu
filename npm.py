@@ -48,7 +48,7 @@ def _get_package_info(pkg: str, registry: str = "https://registry.npmjs.org/") -
 
 def scan_for_brandnew_packages(
     url: str,
-    min_package_age_days: int = 730,
+    min_package_age_days: int = 3,
     registry: str = "https://registry.npmjs.org/",
 ):
     pv = extract_pkg_and_version(url)
@@ -64,6 +64,5 @@ def scan_for_brandnew_packages(
     if datetime.now(modified_date.tzinfo) - modified_date < timedelta(
         days=min_package_age_days
     ):
-        raise Exception(
-            f"Package {pkg} version {ver} was modified less than {min_package_age_days} days ago."
-        )
+        return True
+    return False

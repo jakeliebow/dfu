@@ -4,7 +4,7 @@ from proxy import run_proxy
 from pathlib import Path
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--port", type=int, default=8080, help="Proxy port")
+    p.add_argument("--port", type=int, default=8899, help="Proxy port")
     p.add_argument("--host", default="localhost", help="Proxy host address")
     p.add_argument(
         "--min-package-age-days",
